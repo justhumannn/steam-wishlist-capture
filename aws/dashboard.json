@@ -1,0 +1,121 @@
+{
+  "widgets": [
+    {
+      "type": "text",
+      "x": 0, "y": 0, "width": 24, "height": 2,
+      "properties": {
+        "markdown": "# wishlist.quest 사용량\n**CloudFront 요청** = 실제 방문자가 보낸 요청 · **Lambda 호출** = 캐시에 없어서 서버까지 내려온 요청\n\n무료 한도: Lambda 월 100만 호출 · CloudFront 월 1천만 요청"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 2, "width": 12, "height": 7,
+      "properties": {
+        "title": "CloudFront 요청 수 (실제 방문자)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "period": 3600,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/CloudFront", "Requests", "DistributionId", "E2S5EAK43BHGZB", "Region", "Global"]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 2, "width": 12, "height": 7,
+      "properties": {
+        "title": "Lambda 호출 수 (무료 한도 월 100만)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "ap-northeast-2",
+        "period": 3600,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/Lambda", "Invocations", "FunctionName", "steam-wishlist"]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 9, "width": 8, "height": 6,
+      "properties": {
+        "title": "이번 달 누적 Lambda 호출",
+        "view": "singleValue",
+        "region": "ap-northeast-2",
+        "period": 2592000,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/Lambda", "Invocations", "FunctionName", "steam-wishlist", { "label": "호출 수" }]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8, "y": 9, "width": 8, "height": 6,
+      "properties": {
+        "title": "오류와 거절 (0이어야 정상)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "ap-northeast-2",
+        "period": 3600,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/Lambda", "Errors", "FunctionName", "steam-wishlist", { "label": "오류" }],
+          ["AWS/Lambda", "Throttles", "FunctionName", "steam-wishlist", { "label": "동시실행 거절" }]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16, "y": 9, "width": 8, "height": 6,
+      "properties": {
+        "title": "응답 시간 (ms)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "ap-northeast-2",
+        "period": 3600,
+        "metrics": [
+          ["AWS/Lambda", "Duration", "FunctionName", "steam-wishlist", { "stat": "Average", "label": "평균" }],
+          ["AWS/Lambda", "Duration", "FunctionName", "steam-wishlist", { "stat": "Maximum", "label": "최대" }]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0, "y": 15, "width": 12, "height": 6,
+      "properties": {
+        "title": "CloudFront 전송량 (무료 한도 월 1TB)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "period": 3600,
+        "stat": "Sum",
+        "metrics": [
+          ["AWS/CloudFront", "BytesDownloaded", "DistributionId", "E2S5EAK43BHGZB", "Region", "Global", { "label": "내려간 바이트" }]
+        ]
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12, "y": 15, "width": 12, "height": 6,
+      "properties": {
+        "title": "오류율 (%)",
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "period": 3600,
+        "stat": "Average",
+        "metrics": [
+          ["AWS/CloudFront", "4xxErrorRate", "DistributionId", "E2S5EAK43BHGZB", "Region", "Global", { "label": "4xx" }],
+          ["AWS/CloudFront", "5xxErrorRate", "DistributionId", "E2S5EAK43BHGZB", "Region", "Global", { "label": "5xx" }]
+        ],
+        "yAxis": { "left": { "min": 0 } }
+      }
+    }
+  ]
+}

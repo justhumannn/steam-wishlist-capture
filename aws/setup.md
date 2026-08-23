@@ -267,3 +267,59 @@ STEINS;GATE RE:BOOT 10%)만 남으며, 스팀 페이지 결과와 정확히 일�
   메모리가 두 배로 뛰지 않는다.
 - 검증: 3장짜리 zip을 만들어 Windows 기본 압축 해제로 풀었을 때 CRC 통과, 한글 파일명 유지,
   각 파일이 정상 JPEG임을 확인했다.
+
+---
+
+# 사용량 확인하기
+
+## 대시보드 (제일 편함)
+
+CloudWatch에 `wishlist-quest` 대시보드를 만들어 두었다. 요청 수, 오류, 응답 시간,
+전송량이 한 화면에 나온다.
+
+<https://ap-northeast-2.console.aws.amazon.com/cloudwatch/home?region=ap-northeast-2#dashboards/dashboard/wishlist-quest>
+
+대시보드는 계정당 3개까지 무료다.
+
+고치려면 `aws/dashboard.json`을 수정하고:
+
+```powershell
+$env:AWS_CLI_FILE_ENCODING = 'UTF-8'
+aws cloudwatch put-dashboard --dashboard-name wishlist-quest `
+  --dashboard-body file://aws/dashboard.json --region ap-northeast-2
+```
+
+> `AWS_CLI_FILE_ENCODING=UTF-8`을 빼면 한글이 든 파일을 CLI가 못 읽는다.
+> (`text contents could not be decoded` 오류)
+
+## 콘솔에서 직접 볼 때
+
+| 보고 싶은 것 | 위치 | 리전 |
+| --- | --- | --- |
+| Lambda 호출 수·오류·응답 시간 | Lambda → 함수 → `steam-wishlist` → **모니터링** 탭 | 서울 |
+| 실제 방문자 요청 | CloudFront → 배포 → `E2S5EAK43BHGZB` → **모니터링** 탭 | 버지니아 북부 |
+| 남은 크레딧 | 계정 메뉴 → 결제 및 비용 관리 → **크레딧** | — |
+
+**리전을 잘못 고르면 그래프가 비어 보인다.** Lambda 지표는 서울(ap-northeast-2)에,
+CloudFront 지표는 버지니아 북부(us-east-1)에만 있다.
+
+## 두 숫자의 차이
+
+CloudFront 요청이 Lambda 호출보다 많은 것이 정상이다. **그 차이가 캐시가 아껴준 양**이다.
+이미지는 24시간 캐시되므로, 같은 찜 목록을 다시 열면 Lambda까지 내려오지 않는다.
+
+## 터미널에서
+
+```powershell
+aws cloudwatch get-metric-statistics --namespace AWS/Lambda --metric-name Invocations `
+  --dimensions Name=FunctionName,Value=steam-wishlist `
+  --start-time 2026-08-14T00:00:00Z --end-time 2026-08-21T00:00:00Z `
+  --period 86400 --statistics Sum --region ap-northeast-2 --output table
+```
+
+> `--query`에는 한글을 쓰지 말 것 (함정 4 참고).
+
+## 프리 티어 메뉴는 비어 있다
+
+`aws freetier get-free-tier-usage`가 빈 결과를 돌려준다. Free Plan 계정은 프리 티어 추적 대신
+크레딧으로 관리되기 때문으로 보인다. 사용량은 위 대시보드로, 잔액은 크레딧 화면에서 본다.
