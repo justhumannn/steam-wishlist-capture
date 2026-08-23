@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스팀 찜 목록 카드 메이커</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎮</text></svg>">
+<link rel="stylesheet" href="/style.css?v=6">
+</head>
+<body>
+
+<main class="page">
+
+  <h1 class="title">스팀 찜 목록 카드</h1>
+
+  <!-- ── 링크 입력 ─────────────────────────────────────── -->
+  <section class="block">
+    <label class="label" for="link">찜 목록 링크</label>
+    <div class="row">
+      <input id="link" type="text" spellcheck="false"
+             placeholder="https://store.steampowered.com/wishlist/profiles/7656...">
+      <button id="load" class="solid">불러오기</button>
+    </div>
+    <p class="hint">스팀 → 찜 목록 → 공유 버튼으로 복사한 주소를 그대로 넣으세요.</p>
+    <p id="status" class="status" hidden></p>
+    <p id="filterNote" class="filter-note" hidden></p>
+  </section>
+
+  <!-- ── 설정 ─────────────────────────────────────────── -->
+  <section id="options" hidden>
+
+    <div class="selects">
+      <div class="field">
+        <label for="columns">가로 개수 <b id="columnsValue">3</b></label>
+        <input id="columns" type="range" min="1" max="6" step="1" value="3">
+      </div>
+
+      <div class="field">
+        <label for="sort">정렬</label>
+        <select id="sort">
+          <option value="added-desc">찜한 날짜 · 최신순</option>
+          <option value="added-asc">찜한 날짜 · 오래된순</option>
+          <option value="priority">스팀 우선순위</option>
+          <option value="name">이름순</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="theme">테마</label>
+        <select id="theme">
+          <option value="light">화이트</option>
+          <option value="dark">다크</option>
+          <option value="paper">페이퍼</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="title">제목 (비우면 자동)</label>
+        <input id="title" type="text" placeholder="자동: 닉네임">
+      </div>
+
+      <div class="field">
+        <label for="scale">저장 해상도</label>
+        <select id="scale">
+          <option value="1">1배</option>
+          <option value="2" selected>2배 (선명함)</option>
+          <option value="3">3배</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="perPage">한 장에 담을 게임 수</label>
+        <select id="perPage">
+          <option value="0">자동 (최대한 많이)</option>
+          <option value="60">60개</option>
+          <option value="120">120개</option>
+          <option value="300">300개</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="format">파일 형식</label>
+        <select id="format">
+          <option value="jpeg">JPG · 공유하기 좋은 용량</option>
+          <option value="png">PNG · 무손실, 용량 큼</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="toggles">
+      <label class="toggle"><input type="checkbox" id="showHeader" checked><span>상단 영역 보여짐</span></label>
+      <label class="toggle"><input type="checkbox" id="showDate" checked><span>찜한 날짜 보여짐</span></label>
+      <label class="toggle"><input type="checkbox" id="showAvatar" checked><span>프로필 사진 보여짐</span></label>
+      <label class="toggle"><input type="checkbox" id="showRelease" checked><span>출시일 보여짐</span></label>
+      <label class="toggle"><input type="checkbox" id="showName" checked><span>닉네임 보여짐</span></label>
+    </div>
+
+    <details id="pickerBlock" class="picker-block" hidden>
+      <summary>포함할 게임 <span id="pickCount" class="muted"></span></summary>
+      <div class="row tight">
+        <button id="pickAll" class="ghost">전체 선택</button>
+        <button id="pickNone" class="ghost">전체 해제</button>
+      </div>
+      <ul id="picker" class="picker"></ul>
+    </details>
+
+    <button id="save" class="download">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      다운로드
+    </button>
+    <p id="sizeInfo" class="hint center"></p>
+    <p class="hint center">게임이 많으면 여러 장으로 나뉘며, zip 하나로 묶여 한 번에 받아집니다. 상단 정보는 첫 장에만 들어갑니다.</p>
+    <div id="pager" class="pager" hidden>
+      <button id="prevPage" class="ghost">◀ 이전</button>
+      <span id="pageLabel">1 / 1</span>
+      <button id="nextPage" class="ghost">다음 ▶</button>
+    </div>
+  </section>
+
+  <!-- ── 미리보기 (이것이 그대로 저장됩니다) ──────────────── -->
+  <section class="preview">
+    <div id="empty" class="empty">
+      <p>위에 찜 목록 링크를 넣고 <b>불러오기</b>를 눌러 주세요.</p>
+      <p class="muted">여기 보이는 화면이 그대로 이미지로 저장됩니다.</p>
+    </div>
+    <canvas id="board" hidden></canvas>
+  </section>
+
+</main>
+
+<script src="/app.js?v=6"></script>
+</body>
+</html>

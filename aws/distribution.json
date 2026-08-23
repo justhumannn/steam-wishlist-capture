@@ -1,0 +1,41 @@
+{
+  "CallerReference": "steam-wishlist-2026-08-20",
+  "Comment": "steam-wishlist-capture",
+  "Enabled": true,
+  "HttpVersion": "http2and3",
+  "IsIPV6Enabled": true,
+  "PriceClass": "PriceClass_200",
+  "DefaultRootObject": "",
+  "Origins": {
+    "Quantity": 1,
+    "Items": [
+      {
+        "Id": "lambda-url",
+        "DomainName": "wjwaphjx5mv6eqmj4y6cdp6jgy0xikls.lambda-url.ap-northeast-2.on.aws",
+        "OriginPath": "",
+        "CustomHeaders": { "Quantity": 0 },
+        "CustomOriginConfig": {
+          "HTTPPort": 80,
+          "HTTPSPort": 443,
+          "OriginProtocolPolicy": "https-only",
+          "OriginSslProtocols": { "Quantity": 1, "Items": ["TLSv1.2"] },
+          "OriginReadTimeout": 60,
+          "OriginKeepaliveTimeout": 5
+        }
+      }
+    ]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "lambda-url",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 3,
+      "Items": ["GET", "HEAD", "OPTIONS"],
+      "CachedMethods": { "Quantity": 2, "Items": ["GET", "HEAD"] }
+    },
+    "Compress": true,
+    "CachePolicyId": "03d1611a-6eb9-437b-9d19-bd3e31fc57e0",
+    "OriginRequestPolicyId": "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+  },
+  "CacheBehaviors": { "Quantity": 0 }
+}

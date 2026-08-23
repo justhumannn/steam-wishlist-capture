@@ -1,0 +1,10 @@
+{
+  "name": "steam-wishlist-capture",
+  "version": "1.0.0",
+  "description": "스팀 찜 목록 공유 링크를 카드 이미지로 저장하는 웹앱",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT"
+}

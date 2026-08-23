@@ -1,0 +1,14 @@
+{
+  "Name": "steam-wishlist-cache",
+  "Comment": "Forward all query strings; let origin Cache-Control decide TTL",
+  "DefaultTTL": 0,
+  "MaxTTL": 31536000,
+  "MinTTL": 0,
+  "ParametersInCacheKeyAndForwardedToOrigin": {
+    "EnableAcceptEncodingGzip": true,
+    "EnableAcceptEncodingBrotli": true,
+    "HeadersConfig": { "HeaderBehavior": "none" },
+    "CookiesConfig": { "CookieBehavior": "none" },
+    "QueryStringsConfig": { "QueryStringBehavior": "all" }
+  }
+}

@@ -1,0 +1,15 @@
+# 배포할 때 만들어지는 결과물 (build.ps1이 매번 새로 만든다)
+function.zip
+
+# 편집기 · 도구 설정
+.claude/
+.vscode/
+.idea/
+
+# 의존성은 없지만 혹시 모르니
+node_modules/
+
+# 운영체제가 만드는 파일
+Thumbs.db
+desktop.ini
+.DS_Store
