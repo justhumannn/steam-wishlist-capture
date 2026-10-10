@@ -18,6 +18,7 @@ const ASSET_BASE = 'https://shared.fastly.steamstatic.com/store_item_assets/';
 
 const CACHE_TTL = 10 * 60 * 1000;
 const wishlistCache = new Map();
+const libraryCache = new Map();
 const imageCache = new Map();
 const IMAGE_CACHE_MAX = 200;
 
@@ -332,6 +333,7 @@ async function buildWishlist(link) {
   }
 
   return {
+    mode: 'wishlist',
     steamid,
     profile: raw.profile,
     count: items.length,
@@ -340,6 +342,87 @@ async function buildWishlist(link) {
     // 필터 판단용 값은 화면에서 쓰지 않으므로 응답에서 뺀다.
     items: items.map(({ type, discountPct, platforms, ...rest }) => rest),
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* 라이브러리(보유 게임)                                                  */
+/* ------------------------------------------------------------------ */
+
+// 찜 목록과 달리 보유 게임은 키 없이 가져올 방법이 없다. 2026년 기준으로
+// 전부 막혀 있음을 확인했다:
+//   - steamcommunity.com/profiles/<id>/games?tab=all&xml=1  → 302 로그인 리디렉션
+//   - 게임 목록 페이지 HTML                                  → Sign In 페이지
+//   - IPlayerService/GetOwnedGames 키 없이                   → 401 Unauthorized
+// 그래서 스팀 웹 API 키를 환경 변수로 받는다. 키는 저장소에 두지 않는다.
+const STEAM_API_KEY = process.env.STEAM_API_KEY || '';
+
+async function fetchOwnedGames(steamid) {
+  if (!STEAM_API_KEY) {
+    throw new HttpError(503,
+      '라이브러리 기능은 아직 준비 중입니다. (서버에 스팀 API 키가 설정되지 않았습니다)');
+  }
+
+  const url = 'https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/' +
+    '?key=' + encodeURIComponent(STEAM_API_KEY) +
+    '&steamid=' + steamid +
+    '&include_appinfo=1&include_played_free_games=1';
+
+  const res = await fetch(url, { headers: { 'User-Agent': 'steam-wishlist-capture' } });
+  if (res.status === 401 || res.status === 403) {
+    throw new HttpError(502, '스팀 API 키가 거부되었습니다. 키가 올바른지 확인해 주세요.');
+  }
+  if (!res.ok) throw new HttpError(502, '스팀에서 라이브러리를 가져오지 못했습니다. (HTTP ' + res.status + ')');
+
+  const body = await res.json();
+  const games = body && body.response && body.response.games;
+
+  // 게임 세부 정보가 비공개면 스팀이 빈 응답을 준다. 숨긴 게임도 여기 포함되지 않는다.
+  if (!Array.isArray(games) || games.length === 0) {
+    throw new HttpError(404,
+      '라이브러리가 비어 있거나 비공개입니다. 스팀 [프로필 → 개인정보 보호 설정 → 게임 세부 정보]를 ' +
+      '"공개"로 바꾼 뒤 다시 시도해 주세요.');
+  }
+  return games;
+}
+
+async function buildLibrary(link) {
+  const steamid = await resolveSteamId(link);
+
+  const cached = libraryCache.get(steamid);
+  if (cached && Date.now() - cached.time < CACHE_TTL) return cached.data;
+
+  const owned = await fetchOwnedGames(steamid);
+  const [profile, storeItems] = await Promise.all([
+    fetchProfile(steamid),
+    fetchStoreItems(owned.map((g) => g.appid)),
+  ]);
+
+  const items = owned.map((game) => {
+    const store = storeItems.get(game.appid);
+    const release = store && store.release;
+    return {
+      appid: game.appid,
+      name: (store && store.name) || game.name || ('앱 ' + game.appid),
+      image: pickImage(store, game.appid),
+      playtime: game.playtime_forever || 0,          // 분 단위
+      lastPlayed: game.rtime_last_played || 0,
+      comingSoon: !!(release && release.is_coming_soon),
+      releaseDate: (release && release.steam_release_date) || 0,
+      storeUrl: 'https://store.steampowered.com/app/' + game.appid + '/',
+    };
+  });
+
+  const data = {
+    mode: 'library',
+    steamid,
+    profile,
+    count: items.length,
+    total: items.length,
+    filters: { applied: [], ignored: [] },
+    items,
+  };
+  libraryCache.set(steamid, { time: Date.now(), data });
+  return data;
 }
 
 /* ------------------------------------------------------------------ */
@@ -415,6 +498,7 @@ async function serveStatic(pathname) {
 async function route(method, pathname, query) {
   try {
     if (pathname === '/api/wishlist') return jsonReply(200, await buildWishlist(query.get('url')));
+    if (pathname === '/api/library') return jsonReply(200, await buildLibrary(query.get('url')));
     if (pathname === '/api/image') return await proxyImage(query.get('u'));
     if (pathname === '/health') return jsonReply(200, { ok: true });
     return await serveStatic(pathname);

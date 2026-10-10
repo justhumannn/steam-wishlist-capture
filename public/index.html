@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>스팀 찜 목록 카드 메이커</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎮</text></svg>">
-<link rel="stylesheet" href="/style.css?v=6">
+<link rel="stylesheet" href="/style.css?v=7">
 </head>
 <body>
 
@@ -15,13 +15,18 @@
 
   <!-- ── 링크 입력 ─────────────────────────────────────── -->
   <section class="block">
-    <label class="label" for="link">찜 목록 링크</label>
+    <div class="modes" role="radiogroup" aria-label="무엇을 만들까요">
+      <label class="mode"><input type="radio" name="mode" id="modeWishlist" value="wishlist" checked><span>찜 목록</span></label>
+      <label class="mode"><input type="radio" name="mode" id="modeLibrary" value="library"><span>라이브러리</span></label>
+    </div>
+
+    <label class="label" for="link" id="linkLabel">찜 목록 링크</label>
     <div class="row">
       <input id="link" type="text" spellcheck="false"
              placeholder="https://store.steampowered.com/wishlist/profiles/7656...">
       <button id="load" class="solid">불러오기</button>
     </div>
-    <p class="hint">스팀 → 찜 목록 → 공유 버튼으로 복사한 주소를 그대로 넣으세요.</p>
+    <p class="hint" id="linkHint">스팀 → 찜 목록 → 공유 버튼으로 복사한 주소를 그대로 넣으세요.</p>
     <p id="status" class="status" hidden></p>
     <p id="filterNote" class="filter-note" hidden></p>
   </section>
@@ -89,9 +94,9 @@
 
     <div class="toggles">
       <label class="toggle"><input type="checkbox" id="showHeader" checked><span>상단 영역 보여짐</span></label>
-      <label class="toggle"><input type="checkbox" id="showDate" checked><span>찜한 날짜 보여짐</span></label>
+      <label class="toggle"><input type="checkbox" id="showDate" checked><span id="labelDate">찜한 날짜 보여짐</span></label>
       <label class="toggle"><input type="checkbox" id="showAvatar" checked><span>프로필 사진 보여짐</span></label>
-      <label class="toggle"><input type="checkbox" id="showRelease" checked><span>출시일 보여짐</span></label>
+      <label class="toggle"><input type="checkbox" id="showRelease" checked><span id="labelRelease">출시일 보여짐</span></label>
       <label class="toggle"><input type="checkbox" id="showName" checked><span>닉네임 보여짐</span></label>
     </div>
 
@@ -133,6 +138,6 @@
 
 </main>
 
-<script src="/app.js?v=6"></script>
+<script src="/app.js?v=7"></script>
 </body>
 </html>

@@ -68,7 +68,50 @@ const el = {
   board: $('board'), empty: $('empty'),
   perPage: $('perPage'), pager: $('pager'), pageLabel: $('pageLabel'),
   prevPage: $('prevPage'), nextPage: $('nextPage'),
+  modeWishlist: $('modeWishlist'), modeLibrary: $('modeLibrary'),
+  linkLabel: $('linkLabel'), linkHint: $('linkHint'),
+  labelDate: $('labelDate'), labelRelease: $('labelRelease'),
 };
+
+// 찜 목록과 라이브러리는 담긴 정보가 달라서 화면 문구와 정렬 기준도 달라진다.
+const MODES = {
+  wishlist: {
+    endpoint: '/api/wishlist',
+    linkLabel: '찜 목록 링크',
+    linkHint: '스팀 → 찜 목록 → 공유 버튼으로 복사한 주소를 그대로 넣으세요.',
+    placeholder: 'https://store.steampowered.com/wishlist/profiles/7656...',
+    section: 'WISHLIST',
+    subtitle: '스팀 찜 목록',
+    dateLabel: '찜한 날짜 보여짐',
+    releaseLabel: '출시일 보여짐',
+    sorts: [
+      ['added-desc', '찜한 날짜 · 최신순'],
+      ['added-asc', '찜한 날짜 · 오래된순'],
+      ['priority', '스팀 우선순위'],
+      ['name', '이름순'],
+    ],
+  },
+  library: {
+    endpoint: '/api/library',
+    linkLabel: '스팀 프로필 링크',
+    linkHint: '프로필 주소를 넣으세요. 비공개로 숨긴 게임은 나오지 않습니다.',
+    placeholder: 'https://steamcommunity.com/profiles/7656... 또는 /id/내아이디',
+    section: 'LIBRARY',
+    subtitle: '스팀 라이브러리',
+    dateLabel: '플레이 시간 보여짐',
+    releaseLabel: '마지막 플레이 보여짐',
+    sorts: [
+      ['playtime-desc', '플레이 시간 · 많은 순'],
+      ['playtime-asc', '플레이 시간 · 적은 순'],
+      ['lastplayed', '최근 플레이순'],
+      ['name', '이름순'],
+    ],
+  },
+};
+
+function currentMode() {
+  return el.modeLibrary.checked ? 'library' : 'wishlist';
+}
 
 /* ── 상태 ─────────────────────────────────────────────── */
 
@@ -311,9 +354,22 @@ function visibleItems(options) {
     'added-desc': (a, b) => b.dateAdded - a.dateAdded,
     'added-asc': (a, b) => a.dateAdded - b.dateAdded,
     priority: (a, b) => (a.priority || 9999) - (b.priority || 9999) || b.dateAdded - a.dateAdded,
+    'playtime-desc': (a, b) => (b.playtime || 0) - (a.playtime || 0),
+    'playtime-asc': (a, b) => (a.playtime || 0) - (b.playtime || 0),
+    lastplayed: (a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0),
     name: (a, b) => a.name.localeCompare(b.name, 'ko'),
   };
-  return items.slice().sort(sorters[options.sort] || sorters['added-desc']);
+  const fallback = wishlist.mode === 'library' ? sorters['playtime-desc'] : sorters['added-desc'];
+  return items.slice().sort(sorters[options.sort] || fallback);
+}
+
+// 분 단위 플레이 시간을 읽기 좋게 바꾼다.
+function formatPlaytime(minutes) {
+  if (!minutes) return '안 해봄';
+  if (minutes < 60) return minutes + '분';
+  const hours = minutes / 60;
+  if (hours < 10) return hours.toFixed(1) + '시간';
+  return Math.round(hours).toLocaleString() + '시간';
 }
 
 /* ── 그리기 ───────────────────────────────────────────── */
@@ -473,7 +529,8 @@ function drawProfile(ctx, options, avatar, boardW, top) {
 
   ctx.fillStyle = t.muted;
   ctx.font = '400 13px ' + FONT;
-  ctx.fillText(formatDate(Date.now() / 1000) + ' 기준 · 스팀 찜 목록', x, blockTop + 18);
+  const subtitle = MODES[wishlist.mode === 'library' ? 'library' : 'wishlist'].subtitle;
+  ctx.fillText(formatDate(Date.now() / 1000) + ' 기준 · ' + subtitle, x, blockTop + 18);
 
   // 이름은 글자 사이를 벌려서 크게
   const heading = options.title || nickname || '스팀 찜 목록';
@@ -495,15 +552,28 @@ function drawSpaced(ctx, text, x, y, spacing) {
 
 function drawStats(ctx, options, items, boardW, top) {
   const t = options.theme;
-  const dates = items.map((i) => i.dateAdded).filter(Boolean).sort((a, b) => a - b);
-  const upcoming = items.filter((i) => i.comingSoon).length;
+  let cells;
 
-  const cells = [
-    { label: '찜한 게임', value: String(items.length), note: '개' },
-    { label: '가장 오래된 찜', value: formatDate(dates[0]) || '-' },
-    { label: '가장 최근 찜', value: formatDate(dates[dates.length - 1]) || '-' },
-    { label: '출시 예정', value: String(upcoming), note: '개', highlight: upcoming > 0 },
-  ];
+  if (wishlist.mode === 'library') {
+    const totalMinutes = items.reduce((sum, i) => sum + (i.playtime || 0), 0);
+    const unplayed = items.filter((i) => !i.playtime).length;
+    const most = items.reduce((best, i) => ((i.playtime || 0) > (best.playtime || 0) ? i : best), items[0] || {});
+    cells = [
+      { label: '보유 게임', value: items.length.toLocaleString(), note: '개' },
+      { label: '총 플레이 시간', value: Math.round(totalMinutes / 60).toLocaleString(), note: '시간' },
+      { label: '가장 많이 한 게임', value: most.name || '-', shrink: true },
+      { label: '안 해본 게임', value: unplayed.toLocaleString(), note: '개', highlight: unplayed > 0 },
+    ];
+  } else {
+    const dates = items.map((i) => i.dateAdded).filter(Boolean).sort((a, b) => a - b);
+    const upcoming = items.filter((i) => i.comingSoon).length;
+    cells = [
+      { label: '찜한 게임', value: String(items.length), note: '개' },
+      { label: '가장 오래된 찜', value: formatDate(dates[0]) || '-' },
+      { label: '가장 최근 찜', value: formatDate(dates[dates.length - 1]) || '-' },
+      { label: '출시 예정', value: String(upcoming), note: '개', highlight: upcoming > 0 },
+    ];
+  }
 
   const innerW = boardW - L.pad * 2;
   const cellW = innerW / cells.length;
@@ -527,8 +597,10 @@ function drawStats(ctx, options, items, boardW, top) {
     ctx.fillText(cell.label, textX, baseY + 20);
 
     ctx.fillStyle = cell.highlight ? t.accent : t.text;
-    ctx.font = '700 21px ' + FONT;
-    ctx.fillText(cell.value, textX, baseY + 46);
+    // 게임 이름처럼 긴 값은 글씨를 줄이고 칸을 넘기면 말줄임한다.
+    ctx.font = (cell.shrink ? '700 15px ' : '700 21px ') + FONT;
+    const room = cellW - (i === 0 ? 0 : 18) - 14;
+    ctx.fillText(cell.shrink ? ellipsize(ctx, cell.value, room) : cell.value, textX, baseY + 46);
 
     if (cell.note) {
       const w = ctx.measureText(cell.value).width;
@@ -553,16 +625,20 @@ function drawSectionHeader(ctx, options, items, boardW, top) {
 
   ctx.fillStyle = t.text;
   ctx.font = '800 19px ' + FONT;
-  ctx.fillText('WISHLIST', L.pad, y);
+  ctx.fillText(MODES[wishlist.mode === 'library' ? 'library' : 'wishlist'].section, L.pad, y);
 
-  if (dates.length) {
-    ctx.fillStyle = t.muted;
-    ctx.font = '400 12.5px ' + FONT;
-    ctx.textAlign = 'right';
-    const span = formatDate(dates[0]) + ' ~ ' + formatDate(dates[dates.length - 1]);
-    ctx.fillText(items.length + '개 [' + span + ']', boardW - L.pad, y);
-    ctx.textAlign = 'left';
+  ctx.fillStyle = t.muted;
+  ctx.font = '400 12.5px ' + FONT;
+  ctx.textAlign = 'right';
+  let summary = items.length.toLocaleString() + '개';
+  if (wishlist.mode === 'library') {
+    const hours = Math.round(items.reduce((sum, i) => sum + (i.playtime || 0), 0) / 60);
+    summary += ' [총 ' + hours.toLocaleString() + '시간]';
+  } else if (dates.length) {
+    summary += ' [' + formatDate(dates[0]) + ' ~ ' + formatDate(dates[dates.length - 1]) + ']';
   }
+  ctx.fillText(summary, boardW - L.pad, y);
+  ctx.textAlign = 'left';
 }
 
 function drawFooter(ctx, options, boardW, boardH) {
@@ -624,15 +700,19 @@ function drawCard(ctx, options, item, cover, x, y) {
 
 
   // 이미지 아래쪽에 겹치는 정보줄
+  const isLibrary = wishlist.mode === 'library';
   const metaY = y + L.imageH - 30;
   if (options.showDate) {
     ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.font = '700 ' + L.metaSize + 'px ' + FONT;
-    ctx.fillText(formatDate(item.dateAdded) || '날짜 없음', x + L.cardPadX, metaY);
+    const left = isLibrary ? formatPlaytime(item.playtime) : (formatDate(item.dateAdded) || '날짜 없음');
+    ctx.fillText(left, x + L.cardPadX, metaY);
   }
 
-  // 출시 상태 배지
-  const status = item.comingSoon ? '출시 예정' : '';
+  // 출시 상태 배지 (라이브러리에서는 안 해본 게임을 표시한다)
+  const status = isLibrary
+    ? (item.playtime ? '' : '미플레이')
+    : (item.comingSoon ? '출시 예정' : '');
   if (status) {
     ctx.font = '700 10.5px ' + FONT;
     const w = ctx.measureText(status).width + 12;
@@ -651,9 +731,14 @@ function drawCard(ctx, options, item, cover, x, y) {
   ctx.fillText(ellipsize(ctx, item.name, innerW), x + L.cardPadX, y + L.imageH - 11);
 
   // 아래 띠 안의 글자
-  const bandText = options.showRelease
-    ? (item.comingSoon ? '출시일 미정' : (formatDate(item.releaseDate) || '출시일 미상') + ' 출시')
-    : 'STEAM';
+  let bandText = 'STEAM';
+  if (options.showRelease) {
+    if (isLibrary) {
+      bandText = item.lastPlayed ? formatDate(item.lastPlayed) + ' 마지막 플레이' : '플레이 기록 없음';
+    } else {
+      bandText = item.comingSoon ? '출시일 미정' : (formatDate(item.releaseDate) || '출시일 미상') + ' 출시';
+    }
+  }
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.font = '600 10.5px ' + FONT;
   ctx.fillText(ellipsize(ctx, bandText, innerW), x + L.cardPadX, y + L.imageH + 16);
@@ -752,7 +837,7 @@ async function loadWishlist() {
   setStatus('스팀에서 찜 목록을 불러오는 중…');
 
   try {
-    const res = await fetch('/api/wishlist?url=' + encodeURIComponent(link));
+    const res = await fetch(MODES[currentMode()].endpoint + '?url=' + encodeURIComponent(link));
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '불러오지 못했습니다.');
 
@@ -946,6 +1031,39 @@ async function saveImage() {
 }
 
 /* ── 이벤트 연결 ──────────────────────────────────────── */
+
+// 모드를 바꾸면 안내 문구와 정렬 항목이 그에 맞게 바뀐다.
+function applyMode() {
+  const mode = MODES[currentMode()];
+  el.linkLabel.textContent = mode.linkLabel;
+  el.linkHint.textContent = mode.linkHint;
+  el.link.placeholder = mode.placeholder;
+  el.labelDate.textContent = mode.dateLabel;
+  el.labelRelease.textContent = mode.releaseLabel;
+
+  el.sort.innerHTML = '';
+  for (const [value, text] of mode.sorts) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = text;
+    el.sort.append(option);
+  }
+
+  // 불러온 목록과 모드가 어긋나면 화면을 비운다(엉뚱한 정보가 남지 않도록).
+  if (wishlist && wishlist.mode !== currentMode()) {
+    wishlist = null;
+    el.options.hidden = true;
+    el.pickerBlock.hidden = true;
+    el.board.hidden = true;
+    el.empty.hidden = false;
+    setStatus('');
+    showFilterNote(null);
+  }
+}
+
+el.modeWishlist.addEventListener('change', applyMode);
+el.modeLibrary.addEventListener('change', applyMode);
+applyMode();
 
 el.load.addEventListener('click', loadWishlist);
 el.link.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadWishlist(); });

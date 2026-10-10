@@ -323,3 +323,61 @@ aws cloudwatch get-metric-statistics --namespace AWS/Lambda --metric-name Invoca
 
 `aws freetier get-free-tier-usage`가 빈 결과를 돌려준다. Free Plan 계정은 프리 티어 추적 대신
 크레딧으로 관리되기 때문으로 보인다. 사용량은 위 대시보드로, 잔액은 크레딧 화면에서 본다.
+
+---
+
+# 라이브러리(보유 게임) 기능
+
+찜 목록과 달리 **스팀 웹 API 키가 반드시 필요하다.** 2026년 10월 기준으로
+키 없이 보유 게임을 가져올 방법이 전부 막혀 있음을 직접 확인했다:
+
+| 시도한 방법 | 결과 |
+| --- | --- |
+| `steamcommunity.com/profiles/<id>/games?tab=all&xml=1` | **302** 로그인 리디렉션 |
+| 게임 목록 페이지 HTML | **Sign In** 페이지 |
+| `IPlayerService/GetOwnedGames` (키 없이) | **401** Unauthorized |
+
+프로필이 `public`(visibilityState 3)인데도 302가 났다. 즉 프로필 공개 여부와 무관하게
+커뮤니티 게임 목록이 익명 접근을 막는다.
+
+## 키 설정
+
+키는 <https://steamcommunity.com/dev/apikey> 에서 무료로 발급한다.
+**저장소에는 절대 넣지 않는다.** Lambda 환경 변수로만 둔다.
+
+```powershell
+aws lambda update-function-configuration --function-name steam-wishlist `
+  --environment "Variables={STEAM_API_KEY=발급받은키}" --region ap-northeast-2
+```
+
+> `--environment`는 기존 환경 변수를 **통째로 교체**한다. 나중에 다른 변수를 추가할 때는
+> 기존 것까지 같이 적어야 한다.
+
+`deploy.ps1`은 `update-function-code`만 호출하므로 **재배포해도 키는 지워지지 않는다.**
+
+키가 없으면 `/api/library`가 503과 함께 "준비 중" 안내를 돌려주고, 찜 목록 기능은
+키와 무관하게 그대로 동작한다.
+
+## 비공개 게임
+
+`GetOwnedGames`는 조회 대상의 프라이버시 설정을 그대로 따른다.
+
+- 게임 세부 정보가 **비공개**면 빈 응답 → 404와 함께 안내 문구를 띄운다.
+- 프로필에서 **개별로 숨긴 게임**은 응답에 포함되지 않는다.
+
+즉 숨김 처리를 우리가 따로 구현할 필요가 없다. 스팀이 걸러준 것만 받는다.
+
+## 화면 차이
+
+같은 카드 UI를 쓰되 모드에 따라 문구와 기준이 바뀐다.
+
+| | 찜 목록 | 라이브러리 |
+| --- | --- | --- |
+| 카드 윗줄 | 찜한 날짜 | 플레이 시간 |
+| 카드 아래 띠 | 출시일 | 마지막 플레이 |
+| 배지 | 출시 예정 | 미플레이 |
+| 통계 4칸 | 찜한 게임 / 가장 오래된 찜 / 가장 최근 찜 / 출시 예정 | 보유 게임 / 총 플레이 시간 / 가장 많이 한 게임 / 안 해본 게임 |
+| 정렬 | 찜한 날짜, 우선순위, 이름 | 플레이 시간, 최근 플레이, 이름 |
+| 섹션 제목 | `WISHLIST` | `LIBRARY` |
+
+모드를 바꾸면 이전 모드로 불러온 목록은 지운다. 섞이면 엉뚱한 정보가 표시되기 때문이다.
