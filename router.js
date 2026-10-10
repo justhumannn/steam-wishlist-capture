@@ -60,7 +60,7 @@ function jsonReply(status, payload) {
 //   7656...  또는  <커스텀URL>
 async function resolveSteamId(input) {
   const raw = String(input || '').trim();
-  if (!raw) throw new HttpError(400, '찜 목록 링크를 입력해 주세요.');
+  if (!raw) throw new HttpError(400, '링크를 입력해 주세요.');
   if (/^\d{17}$/.test(raw)) return raw;
 
   let id64 = null;
@@ -85,7 +85,7 @@ async function resolveSteamId(input) {
 
 async function resolveVanityUrl(vanity) {
   if (!/^[\w.-]{2,64}$/.test(vanity)) {
-    throw new HttpError(400, '링크에서 스팀 프로필을 찾지 못했습니다. 찜 목록 페이지 주소를 그대로 붙여넣어 주세요.');
+    throw new HttpError(400, '링크에서 스팀 프로필을 찾지 못했습니다. 스팀 주소를 그대로 붙여넣어 주세요.');
   }
   const res = await fetch('https://steamcommunity.com/id/' + encodeURIComponent(vanity) + '?xml=1', {
     headers: { 'User-Agent': 'steam-wishlist-capture' },
@@ -362,10 +362,14 @@ async function fetchOwnedGames(steamid) {
       '라이브러리 기능은 아직 준비 중입니다. (서버에 스팀 API 키가 설정되지 않았습니다)');
   }
 
+  // include_played_free_games 를 켜면 공개 프로필에 없는 게임까지 딸려온다.
+  // 실제로 재보니 켰을 때 80개, 껐을 때 61개였고 공개 프로필은 60개였다.
+  // 차이 19개는 전부 "플레이만 한 무료 게임"(VRChat, Goose Goose Duck 등)이었다.
+  // 남이 보는 화면과 맞추는 것이 맞으므로 끈다.
   const url = 'https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/' +
     '?key=' + encodeURIComponent(STEAM_API_KEY) +
     '&steamid=' + steamid +
-    '&include_appinfo=1&include_played_free_games=1';
+    '&include_appinfo=1&include_played_free_games=0&skip_unvetted_apps=true';
 
   const res = await fetch(url, { headers: { 'User-Agent': 'steam-wishlist-capture' } });
   if (res.status === 401 || res.status === 403) {

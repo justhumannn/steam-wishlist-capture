@@ -77,6 +77,7 @@ const el = {
 const MODES = {
   wishlist: {
     endpoint: '/api/wishlist',
+    label: '찜 목록',
     linkLabel: '찜 목록 링크',
     linkHint: '스팀 → 찜 목록 → 공유 버튼으로 복사한 주소를 그대로 넣으세요.',
     placeholder: 'https://store.steampowered.com/wishlist/profiles/7656...',
@@ -93,8 +94,9 @@ const MODES = {
   },
   library: {
     endpoint: '/api/library',
+    label: '라이브러리',
     linkLabel: '스팀 프로필 링크',
-    linkHint: '프로필 주소를 넣으세요. 비공개로 숨긴 게임은 나오지 않습니다.',
+    linkHint: '프로필 주소를 넣으세요. 공개 프로필에 보이는 게임만 가져옵니다.',
     placeholder: 'https://steamcommunity.com/profiles/7656... 또는 /id/내아이디',
     section: 'LIBRARY',
     subtitle: '스팀 라이브러리',
@@ -108,6 +110,13 @@ const MODES = {
     ],
   },
 };
+
+// 한글 조사는 앞말의 받침 유무로 갈린다. "찜 목록을" / "라이브러리를"
+function withObjectParticle(word) {
+  const last = word.charCodeAt(word.length - 1);
+  const hasFinal = last >= 0xac00 && last <= 0xd7a3 && (last - 0xac00) % 28 !== 0;
+  return word + (hasFinal ? '을' : '를');
+}
 
 function currentMode() {
   return el.modeLibrary.checked ? 'library' : 'wishlist';
@@ -533,7 +542,8 @@ function drawProfile(ctx, options, avatar, boardW, top) {
   ctx.fillText(formatDate(Date.now() / 1000) + ' 기준 · ' + subtitle, x, blockTop + 18);
 
   // 이름은 글자 사이를 벌려서 크게
-  const heading = options.title || nickname || '스팀 찜 목록';
+  const heading = options.title || nickname ||
+    MODES[wishlist.mode === 'library' ? 'library' : 'wishlist'].subtitle;
   ctx.fillStyle = t.text;
   ctx.font = '800 30px ' + FONT;
   drawSpaced(ctx, ellipsize(ctx, heading, boardW - x - L.pad), x, blockTop + 55, 5);
@@ -829,12 +839,12 @@ function showFilterNote(filters) {
 async function loadWishlist() {
   const link = el.link.value.trim();
   if (!link) {
-    setStatus('찜 목록 링크를 입력해 주세요.', true);
+    setStatus(withObjectParticle(MODES[currentMode()].linkLabel) + ' 입력해 주세요.', true);
     return;
   }
 
   el.load.disabled = true;
-  setStatus('스팀에서 찜 목록을 불러오는 중…');
+  setStatus('스팀에서 ' + withObjectParticle(MODES[currentMode()].label) + ' 불러오는 중…');
 
   try {
     const res = await fetch(MODES[currentMode()].endpoint + '?url=' + encodeURIComponent(link));
@@ -851,9 +861,10 @@ async function loadWishlist() {
 
     const who = (data.profile && data.profile.name) || data.steamid;
     const applied = (data.filters && data.filters.applied) || [];
+    const label = MODES[data.mode === 'library' ? 'library' : 'wishlist'].label;
     setStatus(applied.length
-      ? who + ' 님의 찜 목록에서 ' + data.count + '개를 골랐습니다. (전체 ' + data.total + '개)'
-      : who + ' 님의 찜 목록 ' + data.count + '개를 불러왔습니다.');
+      ? who + ' 님의 ' + label + '에서 ' + data.count + '개를 골랐습니다. (전체 ' + data.total + '개)'
+      : who + ' 님의 ' + label + ' ' + data.count + '개를 불러왔습니다.');
     showFilterNote(data.filters);
   } catch (err) {
     setStatus(err.message, true);
