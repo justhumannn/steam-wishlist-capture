@@ -96,7 +96,7 @@ const MODES = {
     endpoint: '/api/library',
     label: '라이브러리',
     linkLabel: '스팀 프로필 링크',
-    linkHint: '프로필 주소를 넣으세요. 공개 프로필에 보이는 게임만 가져옵니다.',
+    linkHint: '프로필 주소를 넣으세요. 뺀 게임은 다음에도 빠진 채로 기억됩니다.',
     placeholder: 'https://steamcommunity.com/profiles/7656... 또는 /id/내아이디',
     section: 'LIBRARY',
     subtitle: '스팀 라이브러리',
@@ -771,6 +771,7 @@ function buildPicker() {
       if (box.checked) excluded.delete(item.appid);
       else excluded.add(item.appid);
       li.classList.toggle('off', !box.checked);
+      saveExclusions();
       updatePickCount();
       render();
     });
@@ -793,6 +794,33 @@ function buildPicker() {
   updatePickCount();
 }
 
+/* ── 뺀 게임 기억하기 ─────────────────────────────────── */
+
+// 스팀은 "비공개로 표시"한 게임을 API 키 주인 본인이 조회할 때는 그대로 돌려준다.
+// 그래서 본인 프로필은 비공개 게임이 섞여 나올 수 있는데, 한 번 체크를 빼두면
+// 다음에 같은 프로필을 다시 불러와도 계속 빠져 있도록 브라우저에 기억해 둔다.
+function exclusionKey() {
+  return 'excluded:' + wishlist.mode + ':' + wishlist.steamid;
+}
+
+function loadExclusions() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(exclusionKey()) || '[]');
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();   // 시크릿 창 등 저장이 막힌 환경
+  }
+}
+
+function saveExclusions() {
+  try {
+    if (excluded.size) localStorage.setItem(exclusionKey(), JSON.stringify([...excluded]));
+    else localStorage.removeItem(exclusionKey());
+  } catch {
+    // 저장하지 못해도 이번 화면에는 지장이 없다.
+  }
+}
+
 function updatePickCount() {
   const total = wishlist.items.length;
   el.pickCount.textContent = (total - excluded.size) + ' / ' + total;
@@ -800,6 +828,7 @@ function updatePickCount() {
 
 function setAllPicked(picked) {
   excluded = picked ? new Set() : new Set(wishlist.items.map((i) => i.appid));
+  saveExclusions();
   buildPicker();
   render();
 }
@@ -852,8 +881,11 @@ async function loadWishlist() {
     if (!res.ok) throw new Error(data.error || '불러오지 못했습니다.');
 
     wishlist = data;
-    excluded = new Set();
     currentPage = 0;
+    // 지난번에 빼둔 게임이 있으면 그대로 빼고 시작한다.
+    excluded = loadExclusions();
+    const owned = new Set(data.items.map((i) => i.appid));
+    for (const appid of [...excluded]) if (!owned.has(appid)) excluded.delete(appid);
     el.options.hidden = false;
     el.pickerBlock.hidden = false;
     buildPicker();

@@ -362,14 +362,12 @@ async function fetchOwnedGames(steamid) {
       '라이브러리 기능은 아직 준비 중입니다. (서버에 스팀 API 키가 설정되지 않았습니다)');
   }
 
-  // include_played_free_games 를 켜면 공개 프로필에 없는 게임까지 딸려온다.
-  // 실제로 재보니 켰을 때 80개, 껐을 때 61개였고 공개 프로필은 60개였다.
-  // 차이 19개는 전부 "플레이만 한 무료 게임"(VRChat, Goose Goose Duck 등)이었다.
-  // 남이 보는 화면과 맞추는 것이 맞으므로 끈다.
+  // 스팀 프로필의 게임 목록 페이지(/games/?tab=all)와 같은 개수가 나오도록 맞췄다.
+  // 유료든 무료든 전부 포함한다. skip_unvetted_apps 를 켜면 일부가 빠져서 끈다.
   const url = 'https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/' +
     '?key=' + encodeURIComponent(STEAM_API_KEY) +
     '&steamid=' + steamid +
-    '&include_appinfo=1&include_played_free_games=0&skip_unvetted_apps=true';
+    '&include_appinfo=1&include_played_free_games=1&skip_unvetted_apps=false';
 
   const res = await fetch(url, { headers: { 'User-Agent': 'steam-wishlist-capture' } });
   if (res.status === 401 || res.status === 403) {
